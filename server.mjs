@@ -1,0 +1,36 @@
+import http from "node:http";
+import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
+const root=path.dirname(fileURLToPath(import.meta.url)), dataDir=path.join(root,"data"), db=path.join(dataDir,"state.json");
+const port=Number(process.env.PORT||3000), apiVersion=process.env.IG_GRAPH_API_VERSION, igUserId=process.env.IG_USER_ID, token=process.env.IG_ACCESS_TOKEN;
+const auto=process.env.ENABLE_AUTOPUBLISH==="true", poll= Math.max(10000,Number(process.env.AUTOPUBLISH_POLL_MS||30000)), cap=Math.max(1,Number(process.env.MAX_POSTS_PER_DAY||3)), gap=Math.max(30,Number(process.env.MIN_MINUTES_BETWEEN_POSTS||180))*60000;
+await mkdir(dataDir,{recursive:true}); if(!existsSync(db)) await writeFile(db,JSON.stringify({settings:{killSwitch:false},posts:[],audit:[]},null,2));
+let state=JSON.parse(await readFile(db,"utf8")), busy=false;
+const save=()=>writeFile(db,JSON.stringify(state,null,2)), clean=(s,n=2200)=>typeof s==="string"?s.trim().slice(0,n):"";
+const audit=(action,detail={})=>{state.audit.unshift({id:crypto.randomUUID(),at:new Date().toISOString(),action,detail});state.audit=state.audit.slice(0,300)};
+const send=(res,code,v)=>{res.writeHead(code,{"content-type":"application/json; charset=utf-8","cache-control":"no-store"});res.end(JSON.stringify(v))};
+async function body(req){let raw="";for await(const p of req){raw+=p;if(raw.length>1e6)throw Error("Request too large")}return raw?JSON.parse(raw):{}}
+const ready=()=>Boolean(apiVersion&&/^v\d+\.\d+$/.test(apiVersion)&&igUserId&&token);
+function safeUrl(s){try{const u=new URL(s);return u.protocol==="https:"&&!u.username&&!u.password?u.toString():null}catch{return null}}
+async function graphPost(endpoint,values){const r=await fetch("https://graph.facebook.com/"+apiVersion+"/"+endpoint,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({...values,access_token:token})});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw Error(d.error?.message||"Meta API request failed");return d}
+async function publish(p){if(!ready())throw Error("Instagram Meta credentials are not configured");const media=safeUrl(p.mediaUrl);if(!media)throw Error("Media must use a public HTTPS URL");const reel=p.type==="reel";
+const c=await graphPost(igUserId+"/media",reel?{media_type:"REELS",video_url:media,caption:p.caption}:{image_url:media,caption:p.caption});if(!c.id)throw Error("Meta did not return a media container ID");
+let status="IN_PROGRESS";for(let i=0;i<18;i++){await new Promise(r=>setTimeout(r,5000));const q=await fetch("https://graph.facebook.com/"+apiVersion+"/"+c.id+"?fields=status_code&access_token="+encodeURIComponent(token));const d=await q.json().catch(()=>({}));if(!q.ok||d.error)throw Error(d.error?.message||"Could not check media processing");status=d.status_code;if(status==="FINISHED")break;if(status==="ERROR"||status==="EXPIRED")throw Error("Media processing: "+status)}
+if(status!=="FINISHED")throw Error("Media processing still pending");const done=await graphPost(igUserId+"/media_publish",{creation_id:c.id});if(!done.id)throw Error("Meta did not confirm publish");return done.id}
+const today=()=>new Date().toISOString().slice(0,10), publishedToday=()=>state.posts.filter(p=>p.status==="published"&&p.publishedAt?.startsWith(today())).length;
+const lastPublished=()=>Math.max(0,...state.posts.filter(p=>p.status==="published").map(p=>Date.parse(p.publishedAt||0)));
+async function tick(){if(busy||state.settings.killSwitch||!auto||!ready())return;const p=state.posts.filter(x=>x.status==="scheduled"&&Date.parse(x.scheduledAt)<=Date.now()).sort((a,b)=>Date.parse(a.scheduledAt)-Date.parse(b.scheduledAt))[0];if(!p||publishedToday()>=cap||Date.now()-lastPublished()<gap)return;
+busy=true;p.status="publishing";audit("publish_started",{postId:p.id});await save();try{p.instagramMediaId=await publish(p);p.status="published";p.publishedAt=new Date().toISOString();audit("publish_succeeded",{postId:p.id})}catch(e){p.status="scheduled";p.lastError=clean(e.message,500);p.scheduledAt=new Date(Date.now()+300000).toISOString();audit("publish_failed",{postId:p.id,error:p.lastError})}finally{await save();busy=false}}
+const server=http.createServer(async(req,res)=>{try{const u=new URL(req.url,"http://"+(req.headers.host||"localhost"));
+if(req.method==="GET"&&u.pathname==="/"){const h=await readFile(path.join(root,"public/index.html"));res.writeHead(200,{"content-type":"text/html; charset=utf-8"});return res.end(h)}
+if(req.method==="GET"&&u.pathname==="/health")return send(res,200,{ok:true,instagramConfigured:ready(),autoPublishEnabled:auto,killSwitch:state.settings.killSwitch});
+if(req.method==="GET"&&u.pathname==="/api/state")return send(res,200,{settings:state.settings,posts:state.posts,audit:state.audit.slice(0,30),connection:{configured:ready(),autoPublishEnabled:auto,pollMs:poll}});
+if(req.method==="GET"&&u.pathname==="/api/skills"){const dirs=await readdir(path.join(root,"skills"),{withFileTypes:true}),skills=[];for(const d of dirs.filter(x=>x.isDirectory()))try{skills.push({id:d.name,instructions:await readFile(path.join(root,"skills",d.name,"SKILL.md"),"utf8")})}catch{}return send(res,200,{skills})}
+if(req.method==="POST"&&u.pathname==="/api/posts"){const x=await body(req),caption=clean(x.caption),mediaUrl=clean(x.mediaUrl,2048),type=x.type==="reel"?"reel":"image",when=new Date(x.scheduledAt||Date.now()+60000);if(!caption||!safeUrl(mediaUrl)||Number.isNaN(+when))return send(res,400,{error:"Caption, public HTTPS media URL and valid schedule are required"});const p={id:crypto.randomUUID(),type,caption,mediaUrl,scheduledAt:when.toISOString(),status:"scheduled",createdAt:new Date().toISOString()};state.posts.unshift(p);audit("post_scheduled",{postId:p.id,type});await save();return send(res,201,{post:p})}
+if(req.method==="POST"&&u.pathname==="/api/kill-switch"){const x=await body(req);state.settings.killSwitch=x.enabled!==false;audit(state.settings.killSwitch?"kill_switch_enabled":"kill_switch_disabled");await save();return send(res,200,{killSwitch:state.settings.killSwitch})}
+if(req.method==="POST"&&u.pathname.startsWith("/api/posts/")&&u.pathname.endsWith("/cancel")){const id=u.pathname.split("/")[3],p=state.posts.find(x=>x.id===id);if(!p)return send(res,404,{error:"Post not found"});if(p.status!=="scheduled")return send(res,409,{error:"Only scheduled posts can be cancelled"});p.status="cancelled";audit("post_cancelled",{postId:id});await save();return send(res,200,{post:p})}
+return send(res,404,{error:"Not found"})}catch(e){return send(res,500,{error:clean(e.message,500)})}});
+server.listen(port,()=>console.log("Creator OS running at http://localhost:"+port));setInterval(tick,poll);
