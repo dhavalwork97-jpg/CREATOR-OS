@@ -272,6 +272,52 @@ export default async function handler(req, res) {
       if (!origin || !host || new URL(origin).host !== host) return send(res, 403, { error: "Invalid request origin" });
     }
 
+    if (req.method === "GET" && pathname === "/api/instagram/test") {
+      const apiVersion = process.env.IG_GRAPH_API_VERSION;
+      const userId = process.env.IG_USER_ID;
+      const token = process.env.IG_ACCESS_TOKEN;
+      if (!apiVersion || !/^v\\d+\\.\\d+$/.test(apiVersion) || !userId || !token) {
+        return send(res, 503, { connected: false, error: "Instagram API credentials are not configured" });
+      }
+      try {
+        const profileUrl = new URL("https://graph.facebook.com/" + apiVersion + "/" + encodeURIComponent(userId));
+        profileUrl.searchParams.set("fields", "id,username,account_type,media_count");
+        const response = await fetch(profileUrl, {
+          headers: { authorization: "Bearer " + token, accept: "application/json" },
+          cache: "no-store",
+          signal: AbortSignal.timeout(10000)
+        });
+        const profile = await response.json().catch(() => ({}));
+        if (!response.ok || profile.error) {
+          const code = Number(profile.error?.code) || null;
+          return send(res, 502, {
+            connected: false,
+            error: "Meta could not verify the Instagram account. Check token permissions and assigned account assets.",
+            metaErrorCode: code
+          });
+        }
+        if (String(profile.id || "") !== String(userId)) {
+          return send(res, 502, { connected: false, error: "Meta returned a different Instagram account than the configured account." });
+        }
+        return send(res, 200, {
+          connected: true,
+          account: {
+            id: String(profile.id),
+            username: clean(profile.username, 100),
+            accountType: clean(profile.account_type, 40) || null,
+            mediaCount: Number.isFinite(Number(profile.media_count)) ? Number(profile.media_count) : null
+          },
+          checkedAt: new Date().toISOString()
+        });
+      } catch (error) {
+        const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
+        return send(res, timedOut ? 504 : 502, {
+          connected: false,
+          error: timedOut ? "Meta profile check timed out. Try again." : "Could not reach Meta to verify the Instagram account."
+        });
+      }
+    }
+
     if (req.method === "GET" && pathname === "/api/state") {
       const state = await readState();
       return send(res, 200, {
