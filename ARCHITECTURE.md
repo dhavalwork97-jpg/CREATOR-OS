@@ -2,27 +2,33 @@
 
 Dashboard
   -> Agent orchestrator
-  -> Modular skill registry
+  -> Modular skills
   -> Content planning and generation
   -> Safety and publishing policy
-  -> Scheduler / durable worker
-  -> Publishing adapter (Meta Graph API OR Make.com webhook)
+  -> Scheduler / worker
+  -> Publishing adapter (Zapier webhook OR direct Meta API)
   -> Instagram
+  -> Authenticated delivery callback
   -> Audit log and analytics
 
 ## Boundaries
-- Agent core plans and selects skills; it never handles Instagram passwords.
+- Agent core never handles Instagram passwords.
 - Skills are versioned instructions with narrow tool contracts.
 - Content assets must be user-owned, licensed, or otherwise approved.
-- Policy engine checks account permissions, claims, media rights, quotas, idempotency and kill switch.
-- Publisher adapters isolate Meta API details from orchestration.
-- Audit records every state transition and external publishing result.
+- Policy engine checks account permissions, media rights, quotas, kill switch and duplicate-delivery risk.
+- Publisher adapters isolate platform details from orchestration.
+- Every state transition and external publishing result is audited.
+
+## Zapier asynchronous delivery
+1. Creator OS POSTs a scheduled item to the Zapier Catch Hook.
+2. A successful webhook HTTP response means only that Zapier accepted the trigger.
+3. Zapier runs the matching Instagram photo/carousel or Reel action.
+4. A final Zapier Webhooks POST calls `/api/publishing/callback` with the post ID, outcome and Instagram media ID.
+5. The callback must include the shared `X-Creator-OS-Callback-Secret` header. Only a valid callback can move an item to published/failed.
+6. Uncertain delivery is not blindly retried; this avoids duplicate content.
 
 ## Full autonomy
-Full autonomy is bounded autonomy: the agent can plan, draft, edit, schedule and publish approved types of content without per-post confirmation. It cannot bypass policy checks. Sensitive claims, unclear asset rights, platform errors, uncertain publish outcomes, or unusual activity must pause for review.
+Full autonomy is bounded autonomy. It remains disabled until authentication, permissions, idempotency, durable storage, quotas, monitoring and kill-switch controls are verified. Failures or uncertain outcomes pause for review.
 
 ## Production target
-Next.js dashboard, TypeScript services, transactional database, durable queue, encrypted OAuth tokens, public media storage, monitoring, idempotent retries, account-scoped quotas and authenticated admin access.
-
-## Make.com option
-Make can act as a publishing adapter via a webhook scenario. Its Instagram connector still requires an authorized Meta/Instagram connection. It is orchestration, not a way to avoid Meta permissions.
+Authenticated dashboard, transactional database, durable queue, encrypted secrets, public media storage, idempotent callbacks, monitoring, account-scoped quotas and controlled deployment.
