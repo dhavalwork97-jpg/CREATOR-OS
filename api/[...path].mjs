@@ -281,7 +281,7 @@ export default async function handler(req, res) {
       }
       try {
         const profileUrl = new URL("https://graph.facebook.com/" + apiVersion + "/" + encodeURIComponent(userId));
-        profileUrl.searchParams.set("fields", "id,username,account_type,media_count");
+        profileUrl.searchParams.set("fields", "id,username");
         const response = await fetch(profileUrl, {
           headers: { authorization: "Bearer " + token, accept: "application/json" },
           cache: "no-store",
@@ -293,7 +293,8 @@ export default async function handler(req, res) {
           return send(res, 502, {
             connected: false,
             error: "Meta could not verify the Instagram account. Check token permissions and assigned account assets.",
-            metaErrorCode: code
+            metaErrorCode: code,
+            metaErrorMessage: clean(profile.error?.message, 300) || "Meta rejected the profile request"
           });
         }
         if (String(profile.id || "") !== String(userId)) {
