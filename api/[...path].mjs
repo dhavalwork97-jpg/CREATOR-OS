@@ -44,7 +44,7 @@ async function authProxy(req, res, pathname) {
   const owner = (process.env.OWNER_EMAIL || "").trim().toLowerCase();
   if (!owner) return send(res, 503, { error: "Owner sign-in is not configured yet" });
   let raw = "";
-  if (req.method !== "GET" && req.method !== "HEAD") raw = await readBody(req).then(JSON.stringify);
+  if (req.method !== "GET" && req.method !== "HEAD") raw = JSON.stringify(await readBody(req));
   if (pathname.endsWith("/sign-up/email") || pathname.endsWith("/sign-in/email")) {
     let input;
     try { input = JSON.parse(raw || "{}"); } catch { return send(res, 400, { error: "Invalid sign-in request" }); }
