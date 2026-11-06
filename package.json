@@ -1,0 +1,8 @@
+{
+  "name": "creator-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node --env-file-if-exists=.env server.mjs", "dev": "node --env-file-if-exists=.env --watch server.mjs", "check": "node --check server.mjs" },
+  "engines": { "node": ">=20" }
+}
