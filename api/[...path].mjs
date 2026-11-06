@@ -265,6 +265,11 @@ export default async function handler(req, res) {
 
     const session = await ownerSession(req);
     if (!session) return send(res, 401, { error: "Sign in with the configured owner account" });
+    if (req.method === "POST") {
+      const origin = req.headers.origin;
+      const host = req.headers.host;
+      if (!origin || !host || new URL(origin).host !== host) return send(res, 403, { error: "Invalid request origin" });
+    }
 
     if (req.method === "GET" && pathname === "/api/state") {
       const state = await readState();
