@@ -276,7 +276,7 @@ export default async function handler(req, res) {
       const apiVersion = process.env.IG_GRAPH_API_VERSION;
       const userId = process.env.IG_USER_ID;
       const token = process.env.IG_ACCESS_TOKEN;
-      if (!apiVersion || !/^v\\d+\\.\\d+$/.test(apiVersion) || !userId || !token) {
+      if (!apiVersion || !/^v\d+\.\d+$/.test(apiVersion) || !userId || !token) {
         return send(res, 503, { connected: false, error: "Instagram API credentials are not configured" });
       }
       try {
