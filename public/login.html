@@ -5,7 +5,7 @@
 <form id="login"><label>Email</label><input id="email" type="email" autocomplete="username" required><label>Password</label><input id="password" type="password" autocomplete="current-password" required><button id="submit">Sign in</button><button id="create" type="button">Create owner account</button></form>
 <p id="msg" role="status"></p><p class="muted">If this is your first sign-in, create the owner account in Neon Auth first. Public sign-up is restricted to the configured owner email.</p></main>
 <script>
-const form=document.getElementById("login"),msg=document.getElementById("msg"),btn=document.getElementById("submit");
+const form=document.getElementById("login"),msg=document.getElementById("msg"),btn=document.getElementById("submit"),create=document.getElementById("create");
 fetch("/api/session",{credentials:"same-origin"}).then(r=>r.json()).then(v=>{if(v.authenticated)location.replace("/")}).catch(()=>{});
 form.addEventListener("submit",async e=>{e.preventDefault();btn.disabled=true;msg.textContent="Signing in…";try{
  const r=await fetch("/api/auth/sign-in/email",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify({email:document.getElementById("email").value,password:document.getElementById("password").value})});
