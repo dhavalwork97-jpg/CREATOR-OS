@@ -43,6 +43,7 @@ function authBase() {
 async function authProxy(req, res, pathname) {
   const owner = (process.env.OWNER_EMAIL || "").trim().toLowerCase();
   if (!owner) return send(res, 503, { error: "Owner sign-in is not configured yet" });
+  if (pathname.endsWith("/sign-up/email") && !safeEqual(req.headers["x-creator-os-setup-secret"], process.env.OWNER_SETUP_SECRET)) return send(res, 403, { error: "Account setup is locked" });
   let raw = "";
   if (req.method !== "GET" && req.method !== "HEAD") raw = JSON.stringify(await readBody(req));
   if (pathname.endsWith("/sign-up/email") || pathname.endsWith("/sign-in/email")) {
