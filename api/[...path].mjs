@@ -149,6 +149,12 @@ async function processDuePost() {
   const claimed = await mutateState(state => {
     if (state.settings.killSwitch) return null;
     const now = Date.now();
+    for (const stale of state.posts.filter(p => p.status === "publishing" && p.claimedAt && now - Date.parse(p.claimedAt) > 600000)) {
+      stale.status = "delivery_unknown";
+      stale.lastError = "Worker stopped before confirming the publishing outcome; review before retrying.";
+      delete stale.claimedAt;
+      audit(state, "publish_delivery_unknown", { postId: stale.id, reason: "stale_worker_claim" });
+    }
     const today = new Date().toISOString().slice(0, 10);
     const published = state.posts.filter(p => p.status === "published" && p.publishedAt?.startsWith(today)).length;
     const last = Math.max(0, ...state.posts.filter(p => p.status === "published").map(p => Date.parse(p.publishedAt || 0)));
