@@ -83,9 +83,9 @@ async function ownerSession(req) {
   return { id: user.id, email: owner, name: user.name || owner };
 }
 function ready() {
-  return process.env.ENABLE_AUTOPUBLISH === "true" &&
-    Boolean(process.env.ZAPIER_PUBLISH_WEBHOOK_URL && process.env.ZAPIER_CALLBACK_SECRET &&
-    (process.env.CREATOR_OS_PUBLIC_URL || "").startsWith("https://"));
+  const zapier = Boolean(process.env.ZAPIER_PUBLISH_WEBHOOK_URL && process.env.ZAPIER_CALLBACK_SECRET && (process.env.CREATOR_OS_PUBLIC_URL || "").startsWith("https://"));
+  const meta = Boolean(process.env.IG_GRAPH_API_VERSION && process.env.IG_USER_ID && process.env.IG_ACCESS_TOKEN);
+  return process.env.ENABLE_AUTOPUBLISH === "true" && (zapier || meta);
 }
 async function submitToZapier(post) {
   const base = process.env.CREATOR_OS_PUBLIC_URL.replace(/\/$/, "");
