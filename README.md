@@ -66,10 +66,11 @@ The Vercel app uses a Vercel Node.js Function for API requests and Neon Postgres
 - `DATABASE_URL`: supplied by the Neon Marketplace integration.
 - `NEON_AUTH_BASE_URL`: supplied by Neon Auth when Auth is enabled for the connected database.
 - `OWNER_EMAIL`: the single email address allowed to sign in to this Creator OS instance.
+- `OWNER_SETUP_SECRET`: a temporary random code required only to create the first owner account; remove it from Vercel after signup.
 - `CRON_SECRET`: a random secret of at least 32 characters used by the worker endpoint.
 - Keep `ENABLE_AUTOPUBLISH=false` until authentication, callbacks and a real test publish have been verified.
 
-The login page supports creating the initial owner account and signing in through Neon Auth. The API proxies only the required auth endpoints and checks that the active session email exactly matches `OWNER_EMAIL`. All queue, state and kill-switch APIs require that owner session. The publishing callback and worker use separate shared secrets.
+The login page supports creating the initial owner account and signing in through Neon Auth. Initial account creation requires `OWNER_SETUP_SECRET` and is restricted to `OWNER_EMAIL`; remove the setup secret after the account is created. The API proxies only the required auth endpoints and checks that the active session email exactly matches `OWNER_EMAIL`. All queue, state and kill-switch APIs require that owner session. The publishing callback and worker use separate shared secrets.
 
 ### Scheduled worker
 
