@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
     "dev": "node --env-file-if-exists=.env --watch server.mjs",
-    "check": "node --check server.mjs && node --check lib/db.mjs"
+    "check": "node --check server.mjs && node --check lib/db.mjs && node --check "api/[...path].mjs""
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2"
