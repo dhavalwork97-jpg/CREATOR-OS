@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in · Creator OS</title>
+<style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0d1018;color:#edf1f8;font:15px system-ui,sans-serif}.card{width:min(420px,calc(100% - 32px));padding:28px;background:#151b27;border:1px solid #273246;border-radius:16px}h1{margin:0 0 8px}p{color:#9aa7ba;line-height:1.5}label{display:block;margin:16px 0 6px;color:#9aa7ba;font-size:13px}input{width:100%;padding:12px;background:#0e1420;border:1px solid #273246;border-radius:8px;color:white}button{margin-top:18px;width:100%;padding:12px;border:0;border-radius:8px;background:#a78bfa;font-weight:700;cursor:pointer}.muted{font-size:12px}#msg{min-height:24px}</style></head>
+<body><main class="card"><h1>Creator OS</h1><p>Private owner sign-in. Only the configured owner email can access this dashboard.</p>
+<form id="login"><label>Email</label><input id="email" type="email" autocomplete="username" required><label>Password</label><input id="password" type="password" autocomplete="current-password" required><label>One-time setup code (first account only)</label><input id="setup" type="password" autocomplete="off"><button id="submit">Sign in</button><button id="create" type="button">Create owner account</button></form>
+<p id="msg" role="status"></p><p class="muted">If this is your first sign-in, create the owner account in Neon Auth first. Public sign-up is restricted to the configured owner email.</p></main>
+<script>
+const form=document.getElementById("login"),msg=document.getElementById("msg"),btn=document.getElementById("submit"),create=document.getElementById("create");
+fetch("/api/session",{credentials:"same-origin"}).then(r=>r.json()).then(v=>{if(v.authenticated)location.replace("/")}).catch(()=>{});
+form.addEventListener("submit",async e=>{e.preventDefault();btn.disabled=true;msg.textContent="Signing in…";try{
+ const r=await fetch("/api/auth/sign-in/email",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify({email:document.getElementById("email").value,password:document.getElementById("password").value})});
+ const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.message||data.error||"Sign-in failed");
+ const check=await fetch("/api/session",{credentials:"same-origin"});const session=await check.json();if(!session.authenticated)throw new Error("This account is not the configured owner.");
+ location.replace("/");
+ }catch(err){msg.textContent=err.message;btn.disabled=false}});
+
+document.getElementById("create").addEventListener("click",async()=>{btn.disabled=true;create.disabled=true;msg.textContent="Creating owner account…";try{const r=await fetch("/api/auth/sign-up/email",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json","x-creator-os-setup-secret":document.getElementById("setup").value},body:JSON.stringify({name:"Creator OS Owner",email:document.getElementById("email").value,password:document.getElementById("password").value})});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.message||data.error||"Account creation failed");const s=await fetch("/api/session",{credentials:"same-origin"});const session=await s.json();if(!session.authenticated)throw new Error("Account created. Now sign in with the owner email.");location.replace("/")}catch(e){msg.textContent=e.message;btn.disabled=false;create.disabled=false}});
+</script></body></html>

@@ -56,3 +56,31 @@ The existing Hugging Face vertical-video pipeline is not modified. A future adap
 2. Harden callback reconciliation and delivery idempotency
 3. Reuse the existing vertical-video pipeline through a separate adapter
 4. Add content planning, analytics and performance feedback
+
+## Vercel + Neon deployment
+
+The Vercel app uses a Vercel Node.js Function for API requests and Neon Postgres for durable state. The local `server.mjs` entry point uses the same request handler for development; JSON files are no longer used for application state.
+
+### Required Vercel environment variables
+
+- `DATABASE_URL`: supplied by the Neon Marketplace integration.
+- `NEON_AUTH_BASE_URL`: supplied by Neon Auth when Auth is enabled for the connected database.
+- `OWNER_EMAIL`: the single email address allowed to sign in to this Creator OS instance.
+- `OWNER_SETUP_SECRET`: a temporary random code required only to create the first owner account; remove it from Vercel after signup.
+- `CRON_SECRET`: a random secret of at least 32 characters used by the worker endpoint.
+- Keep `ENABLE_AUTOPUBLISH=false` until authentication, callbacks and a real test publish have been verified.
+
+The login page supports creating the initial owner account and signing in through Neon Auth. Initial account creation requires `OWNER_SETUP_SECRET` and is restricted to `OWNER_EMAIL`; remove the setup secret after the account is created. The API proxies only the required auth endpoints and checks that the active session email exactly matches `OWNER_EMAIL`. All queue, state and kill-switch APIs require that owner session. The publishing callback and worker use separate shared secrets.
+
+### Scheduled worker
+
+Vercel Hobby cron is limited to once per day, which is not suitable for scheduled social posts. The repository includes a GitHub Actions worker that checks every five minutes. Configure these **GitHub repository Actions secrets** after the preview app is ready:
+
+- `CREATOR_OS_URL`: the HTTPS URL of the deployed Creator OS app.
+- `CREATOR_OS_CRON_SECRET`: the same value as Vercel's `CRON_SECRET`.
+
+If Vercel Deployment Protection is enabled for the preview URL, the workflow also needs a Vercel protection-bypass secret header; do not disable deployment protection just to make the worker work. The worker endpoint is idempotent and claims a due item with a version-checked database update. Uncertain publish attempts are marked for review rather than blindly retried.
+
+### Safety
+
+The default database state starts with the kill switch ON. Autopublishing remains disabled unless `ENABLE_AUTOPUBLISH=true` is explicitly configured. Never put Instagram tokens, database URLs, or worker secrets in browser code or GitHub commits. The legal website project is separate and is not changed by this application.
