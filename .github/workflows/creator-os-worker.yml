@@ -1,0 +1,32 @@
+name: Creator OS scheduled worker
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: creator-os-worker
+  cancel-in-progress: false
+
+jobs:
+  process-due-post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger protected Creator OS worker
+        env:
+          CREATOR_OS_URL: ${{ secrets.CREATOR_OS_URL }}
+          CREATOR_OS_CRON_SECRET: ${{ secrets.CREATOR_OS_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CREATOR_OS_URL" ] || [ -z "$CREATOR_OS_CRON_SECRET" ]; then
+            echo "Missing CREATOR_OS_URL or CREATOR_OS_CRON_SECRET repository secrets."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -H "Authorization: Bearer $CREATOR_OS_CRON_SECRET" \
+            "$CREATOR_OS_URL/api/worker/run"
