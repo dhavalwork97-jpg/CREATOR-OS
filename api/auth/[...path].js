@@ -1,6 +1,3 @@
-// Vercel's explicit auth catch-all ensures Neon Auth proxy requests are routed
-// independently from the application's general API catch-all.
-// The shared handler retains owner-email and setup-secret enforcement.
-import handler from "../[...path].mjs";
-
+// Explicit Vercel auth catch-all backed by the shared API handler.
+import handler from "../../lib/api-handler.mjs";
 export default handler;
