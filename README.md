@@ -43,7 +43,7 @@ Creator OS sends this JSON event to Zapier: `event`, `postId`, `type`, `caption`
 
 ## Security and deployment status
 
-This is still a development MVP. Dashboard/API routes other than the callback do not yet have user authentication, and JSON storage is single-process development storage. Do not expose this server publicly or enable unattended publishing until authentication, persistent transactional storage, secrets management, HTTPS deployment, rate limits and operational monitoring are implemented. Never commit `.env`, expose tokens in browser code, or share the private webhook URL / callback secret.
+Creator OS uses owner-only dashboard/API authentication and Neon Postgres in the deployed app. Keep unattended publishing disabled until delivery reconciliation and operational safeguards are complete. Never commit `.env`, expose tokens in browser code, or share the private webhook URL / callback secret.
 
 ## Media requirements
 The Instagram action requires media that Zapier/Meta can fetch. Use publicly accessible HTTPS URLs; do not use local file paths or private Dropbox links.
@@ -51,11 +51,22 @@ The Instagram action requires media that Zapier/Meta can fetch. Use publicly acc
 ## Existing media pipeline
 The existing Hugging Face vertical-video pipeline is not modified. A future adapter can pass its finished public media URLs into Creator OS.
 
+## Milestone 5 — Autonomous Creator Agent
+
+The first approval-first agent workspace is available in the dashboard. It creates a transparent, rules-based weekly content blueprint from the owner's niche, audience, objective and content pillars. Each idea is saved for review and can be approved or rejected.
+
+Current boundaries:
+- This first planner does not call an LLM, scrape trends, generate media, or claim performance insights.
+- Approving a blueprint records editorial approval only; it does not create a publish job or publish to Instagram.
+- The existing manual publisher remains available. Scheduled publishing remains controlled by `ENABLE_AUTOPUBLISH` and the emergency kill switch.
+- Future agent capabilities should be added behind explicit tools and approval gates: opportunity research, model-assisted drafts, media-pipeline import, analytics feedback and finally supervised execution.
+
 ## Roadmap
-1. Secure dashboard authentication and persistent storage
+1. Secure dashboard authentication and persistent storage — complete
 2. Harden callback reconciliation and delivery idempotency
 3. Reuse the existing vertical-video pipeline through a separate adapter
 4. Add content planning, analytics and performance feedback
+5. Autonomous Creator Agent — approval-first planning foundation in progress
 
 ## Vercel + Neon deployment
 
