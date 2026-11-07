@@ -29,7 +29,7 @@
       const id = cardEl.dataset.id;
       const run = async (action, body) => {
         const buttons = cardEl.querySelectorAll("button"); buttons.forEach(b => b.disabled = true);
-        try { await request("/api/board/" + id + "/" + action, body); $("board-message").textContent = action === "approve" ? "Approved and added to the existing schedule queue." : action === "discard" ? "Card discarded." : "Card saved."; await refresh(); }
+        try { await request("/api/board/" + id + "/" + action, body || {}); $("board-message").textContent = action === "approve" ? "Approved and added to the existing schedule queue." : action === "discard" ? "Card discarded." : "Card saved."; await refresh(); }
         catch (error) { $("board-message").textContent = error.message; buttons.forEach(b => b.disabled = false); }
       };
       cardEl.querySelector(".board-save")?.addEventListener("click", () => run("update", { prompt: cardEl.querySelector(".board-prompt").value, caption: cardEl.querySelector(".board-caption").value, mediaUrl: cardEl.querySelector(".board-media").value }));
