@@ -19,4 +19,5 @@ jobs:
           node-version: 20
       - run: npm install --no-package-lock --ignore-scripts
       - run: npm run check
+      - run: npm test
       - run: node --check 'api/[...path].mjs'
