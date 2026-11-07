@@ -114,7 +114,7 @@ async function publishDirect(post) {
   const media = safeUrl(post.mediaUrl);
   if (!media) throw new Error("Media must use a public HTTPS URL");
   async function graphPost(endpoint, values) {
-    const response = await fetch("https://graph.instagram.com/" + apiVersion + "/" + endpoint, {
+    const response = await fetch("https://graph.facebook.com/" + apiVersion + "/" + endpoint, {
       method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ ...values, access_token: token })
     });
@@ -123,16 +123,16 @@ async function publishDirect(post) {
     return data;
   }
   const reel = post.type === "reel";
-  // Instagram Login tokens are scoped to graph.instagram.com. Use /me
-  // rather than the Facebook Login IG user ID path.
-  const container = await graphPost("me/media", reel
+  // Unified Login System User Access Tokens use graph.facebook.com
+  // and the configured Instagram professional account ID.
+  const container = await graphPost(userId + "/media", reel
     ? { media_type: "REELS", video_url: media, caption: post.caption }
     : { image_url: media, caption: post.caption });
   if (!container.id) throw new Error("Meta did not return a media container ID");
   let status = "IN_PROGRESS";
   for (let i = 0; i < 18; i++) {
     await new Promise(resolve => setTimeout(resolve, 5000));
-    const response = await fetch("https://graph.instagram.com/" + apiVersion + "/" + container.id +
+    const response = await fetch("https://graph.facebook.com/" + apiVersion + "/" + container.id +
       "?fields=status_code&access_token=" + encodeURIComponent(token));
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.error) throw new Error(data.error?.message || "Could not check media processing");
@@ -141,7 +141,7 @@ async function publishDirect(post) {
     if (status === "ERROR" || status === "EXPIRED") throw new Error("Media processing: " + status);
   }
   if (status !== "FINISHED") throw new Error("Media processing still pending");
-  const result = await graphPost("me/media_publish", { creation_id: container.id });
+  const result = await graphPost(userId + "/media_publish", { creation_id: container.id });
   if (!result.id) throw new Error("Meta did not confirm publish");
   return result.id;
 }
@@ -282,11 +282,13 @@ export default async function handler(req, res) {
         return send(res, 503, { connected: false, error: "Instagram API credentials are not configured" });
       }
       try {
-        // Instagram Login tokens belong to graph.instagram.com and use /me.
-        const profileUrl = new URL("https://graph.instagram.com/" + apiVersion + "/me");
-        profileUrl.searchParams.set("fields", "user_id,username");
+        // Unified Login SUAT credentials use the Facebook Graph host and
+        // the Instagram professional account ID, not the Instagram Login /me route.
+        const profileUrl = new URL("https://graph.facebook.com/" + apiVersion + "/" + encodeURIComponent(userId));
+        profileUrl.searchParams.set("fields", "id,username");
+        profileUrl.searchParams.set("access_token", token);
         const response = await fetch(profileUrl, {
-          headers: { authorization: "Bearer " + token, accept: "application/json" },
+          headers: { accept: "application/json" },
           cache: "no-store",
           signal: AbortSignal.timeout(10000)
         });
@@ -300,7 +302,7 @@ export default async function handler(req, res) {
             metaErrorMessage: clean(profile.error?.message, 300) || "Meta rejected the profile request"
           });
         }
-        const verifiedUserId = String(profile.user_id || profile.id || "");
+        const verifiedUserId = String(profile.id || "");
         if (!verifiedUserId || verifiedUserId !== String(userId)) {
           return send(res, 502, { connected: false, error: "Meta returned a different Instagram account than the configured account." });
         }
