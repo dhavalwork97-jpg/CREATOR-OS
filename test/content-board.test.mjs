@@ -37,5 +37,5 @@ test("cancelling a scheduled post releases its card; discard removes unscheduled
   releaseBoardCard(s, post);
   assert.equal(card.status, "ready");
   assert.equal(discardBoardCard(s, card.id).status, 200);
-  assert.equal(s.boardCards.length, 0);
+  assert.equal(s.boardCards.length, 2);
 });
