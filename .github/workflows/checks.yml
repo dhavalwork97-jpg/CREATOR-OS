@@ -2,7 +2,7 @@ name: Creator OS checks
 
 on:
   push:
-    branches: [feature/vercel-neon-secure-backend]
+    branches: [main, 'feature/**']
   pull_request:
     branches: [main]
 
