@@ -95,3 +95,13 @@ If Vercel Deployment Protection is enabled for the preview URL, the workflow als
 ### Safety
 
 The default database state starts with the kill switch ON. Autopublishing remains disabled unless `ENABLE_AUTOPUBLISH=true` is explicitly configured. Never put Instagram tokens, database URLs, or worker secrets in browser code or GitHub commits. The legal website project is separate and is not changed by this application.
+
+## Weekly content board
+
+The owner-only dashboard includes an approval-first weekly content board. It creates editable cards from the existing rules-based planner, with an original-media prompt, editable caption, content pillar, format, date and suggested posting slot. Posting-slot suggestions use Ahmedabad time (UTC+05:30) unless `POSTING_UTC_OFFSET_MINUTES` is explicitly configured.
+
+- Each card must be reviewed and individually approved before it is added to the existing scheduled-post queue.
+- Approval schedules a post; it does not publish immediately. The existing scheduler, kill switch, publisher and auto-publishing setting remain authoritative.
+- Attach media by providing a direct, publicly accessible HTTPS URL. The app does not host binary uploads and this feature adds no object-storage service.
+- No new authentication system or database is introduced. Board cards are stored in the existing owner-scoped Neon state.
+- Cards can be edited or discarded before scheduling. Cancelling a scheduled post returns its card to the ready state.
