@@ -1,0 +1,6 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {generateGeminiImage,DEFAULT_MODEL} from "../lib/media-providers/gemini-image.mjs";
+test("returns image data from Gemini",async()=>{let request;const result=await generateGeminiImage({prompt:"A cinematic quiet coastline at blue hour, no people, vertical composition",apiKey:"test-key",fetchImpl:async(url,options)=>{request={url,options};return new Response(JSON.stringify({candidates:[{content:{parts:[{inlineData:{mimeType:"image/png",data:Buffer.from("image").toString("base64")}}]}}]}),{status:200})}});assert.equal(result.mimeType,"image/png");assert.equal(result.model,DEFAULT_MODEL);assert.match(request.url,/gemini-3\.1-flash-image/);assert.equal(request.options.headers["x-goog-api-key"],"test-key")});
+test("rejects short prompts before provider request",async()=>{await assert.rejects(generateGeminiImage({prompt:"too short",apiKey:"test",fetchImpl:()=>{throw Error("must not fetch")}}),/between 20 and 2000/)});
+test("does not expose provider response bodies",async()=>{await assert.rejects(generateGeminiImage({prompt:"A detailed original illustration of a quiet ocean at dusk",apiKey:"test",fetchImpl:async()=>new Response(JSON.stringify({error:{message:"secret"}}),{status:403})}),e=>!e.message.includes("secret"))});

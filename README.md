@@ -105,3 +105,7 @@ The owner-only dashboard includes an approval-first weekly content board. It cre
 - Attach media by providing a direct, publicly accessible HTTPS URL. The app does not host binary uploads and this feature adds no object-storage service.
 - No new authentication system or database is introduced. Board cards are stored in the existing owner-scoped Neon state.
 - Cards can be edited or discarded before scheduling. Cancelling a scheduled post returns its card to the ready state.
+
+
+## Gemini image generation
+Optional original-image generation is disabled by default. It requires a server-side GEMINI_API_KEY and explicit GEMINI_IMAGE_GENERATION_ENABLED=true. API billing is separate from a consumer Gemini subscription. Attempts are capped (default 2/day, maximum 5); failed attempts count. Previews are temporary and are not persisted, scheduled or published. No new storage service or credentials are configured.
