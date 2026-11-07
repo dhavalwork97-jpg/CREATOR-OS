@@ -141,7 +141,7 @@ async function publishDirect(post) {
     if (status === "ERROR" || status === "EXPIRED") throw new Error("Media processing: " + status);
   }
   if (status !== "FINISHED") throw new Error("Media processing still pending");
-  const result = await graphPost("me/media_publish", { creation_id: container.id });
+  const result = await graphPost(userId + "/media_publish", { creation_id: container.id });
   if (!result.id) throw new Error("Meta did not confirm publish");
   return result.id;
 }
