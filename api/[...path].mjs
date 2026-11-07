@@ -1,3 +1,4 @@
+export const config = { maxDuration: 60 };
 import crypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -336,6 +337,53 @@ export default async function handler(req, res) {
           autoPublishEnabled: process.env.ENABLE_AUTOPUBLISH === "true"
         }
       });
+    }
+
+
+    if (req.method === "POST" && pathname === "/api/posts/publish-now") {
+      const input = await readBody(req);
+      const caption = clean(input.caption, 2200);
+      const mediaUrl = clean(input.mediaUrl, 2048);
+      const type = input.type === "reel" ? "reel" : "image";
+      if (input.confirm !== true) return send(res, 400, { error: "Explicit publish confirmation is required" });
+      if (!caption || !safeUrl(mediaUrl)) return send(res, 400, { error: "A caption and publicly accessible HTTPS media URL are required" });
+      if (!process.env.IG_GRAPH_API_VERSION || !process.env.IG_USER_ID || !process.env.IG_ACCESS_TOKEN) {
+        return send(res, 503, { error: "Direct Instagram publishing is not configured" });
+      }
+      const now = new Date().toISOString();
+      const post = { id: crypto.randomUUID(), type, caption, mediaUrl, scheduledAt: now, createdAt: now, status: "publishing", manual: true };
+      const inserted = await mutateState(state => {
+        if (state.settings.killSwitch) return false;
+        state.posts.unshift(post);
+        audit(state, "manual_publish_started", { postId: post.id, type, adapter: "meta" });
+        return true;
+      });
+      if (!inserted) return send(res, 423, { error: "Emergency stop is ON. Turn it OFF before starting this manual test." });
+      try {
+        const externalId = await publishDirect(post);
+        await mutateState(state => {
+          const saved = state.posts.find(item => item.id === post.id);
+          if (!saved) return;
+          saved.status = "published";
+          saved.instagramMediaId = externalId;
+          saved.publishedAt = new Date().toISOString();
+          audit(state, "manual_publish_succeeded", { postId: post.id, adapter: "meta" });
+        });
+        return send(res, 200, { ok: true, postId: post.id, status: "published", instagramMediaId: externalId });
+      } catch (error) {
+        const message = clean(error?.message, 300) || "Meta did not confirm the publishing result";
+        await mutateState(state => {
+          const saved = state.posts.find(item => item.id === post.id);
+          if (!saved) return;
+          saved.status = "delivery_unknown";
+          saved.lastError = message;
+          audit(state, "manual_publish_delivery_unknown", { postId: post.id, error: message });
+        });
+        return send(res, 502, {
+          ok: false, postId: post.id, status: "delivery_unknown",
+          error: "Creator OS could not confirm the publishing outcome. Check Instagram before retrying to avoid a duplicate. " + message
+        });
+      }
     }
 
     if (req.method === "POST" && pathname === "/api/posts") {
