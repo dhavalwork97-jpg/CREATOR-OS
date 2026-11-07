@@ -131,7 +131,7 @@ async function publishDirect(post) {
     : { image_url: media, caption: post.caption });
   if (!container.id) throw new Error("Meta did not return a media container ID");
   let status = "IN_PROGRESS";
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 10; i++) {
     await new Promise(resolve => setTimeout(resolve, 5000));
     const response = await fetch("https://graph.facebook.com/" + apiVersion + "/" + container.id +
       "?fields=status_code&access_token=" + encodeURIComponent(token));
