@@ -6,10 +6,13 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
     "dev": "node --env-file-if-exists=.env --watch server.mjs",
-    "check": "node --check server.mjs && node --check lib/db.mjs"
+    "check": "node --check server.mjs && node --check lib/db.mjs && node --check lib/agent-planner.mjs && node --check lib/api-handler.mjs && node --check 'api/[...path].mjs'",
+    "test": "node --test"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
