@@ -1,4 +1,3 @@
-// Expose the read-only Instagram profile check as an explicit Vercel function.
-import handler from "../[...path].mjs";
-
+// Explicit Vercel function entrypoint for Instagram verification.
+import handler from "../../lib/api-handler.mjs";
 export default handler;
