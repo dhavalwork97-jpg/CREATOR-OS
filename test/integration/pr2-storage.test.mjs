@@ -151,18 +151,20 @@ test("discarding a card removes its stored file and frees the space", async () =
 });
 
 test("presigned uploads reserve storage and an unreserved key cannot be attached", async () => {
-  const image = cards.find(c => c.format === "image");
+  const generated = await call("/api/board/generate", brief);
+  const image = generated.body.cards.find(c => c.format === "image");
+  const before = (await call("/api/state")).body.storage;
   const presigned = (await call("/api/board/" + image.id + "/presign", { contentType: "image/jpeg", size: 1000000 })).body;
-  assert.equal((await call("/api/state")).body.storage.reservedBytes, 1000000);
+  assert.equal((await call("/api/state")).body.storage.reservedBytes, before.reservedBytes + 1000000);
   const otherKey = "board/" + image.id + "/66666666-6666-6666-6666-666666666666";
   const rejected = await call("/api/board/" + image.id + "/media", { key: otherKey, format: "jpg", bytes: 1000000 });
   assert.equal(rejected.status, 409);
-  assert.equal((await call("/api/state")).body.storage.reservedBytes, 1000000);
+  assert.equal((await call("/api/state")).body.storage.reservedBytes, before.reservedBytes + 1000000);
   const uploaded = browserUpload(presigned, "image", "jpg", "image/jpeg", 1000000);
   assert.equal((await call("/api/board/" + image.id + "/media", { key: presigned.key, ...uploaded })).status, 200);
   const state = (await call("/api/state")).body.storage;
-  assert.equal(state.reservedBytes, 0);
-  assert.equal(state.usedBytes, 1500000);
+  assert.equal(state.reservedBytes, before.reservedBytes);
+  assert.equal(state.usedBytes, before.usedBytes + 1000000);
 });
 
 test("daily upload cap blocks further presigns", async () => {
