@@ -8,7 +8,7 @@ const uploaded = new Map();   // public URL -> { type, bytes, header }
 const deleted = [];           // { resource, publicId }
 
 const app = await startApp({
-  env: { CLOUDINARY_CLOUD_NAME: CLOUD, CLOUDINARY_API_KEY: API_KEY, CLOUDINARY_API_SECRET: API_SECRET, STORAGE_MAX_UPLOADS_PER_DAY: "6", STORAGE_MAX_TOTAL_MB: "100" },
+  env: { CLOUDINARY_CLOUD_NAME: CLOUD, CLOUDINARY_API_KEY: API_KEY, CLOUDINARY_API_SECRET: API_SECRET, STORAGE_MAX_UPLOADS_PER_DAY: "8", STORAGE_MAX_TOTAL_MB: "100" },
   routes: [
     { match: url => url.startsWith("https://res.cloudinary.com/" + CLOUD + "/"), respond: url => {
         const file = uploaded.get(url);
@@ -186,7 +186,7 @@ test("an uploaded file cannot exceed its reserved byte count", async () => {
 test("daily upload cap blocks further presigns", async () => {
   const reel = cards.find(c => c.format === "reel");
   const results = [];
-  for (let i = 0; i < 8; i++) results.push((await call("/api/board/" + reel.id + "/presign", { contentType: "video/mp4", size: 1000 })).status);
+  for (let i = 0; i < 10; i++) results.push((await call("/api/board/" + reel.id + "/presign", { contentType: "video/mp4", size: 1000 })).status);
   assert.ok(results.includes(429), "a 429 appears once the daily cap is hit: " + results.join(","));
 });
 
