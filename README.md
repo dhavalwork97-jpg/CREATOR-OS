@@ -6,7 +6,7 @@ A free-first modular creator agent for Instagram. This repository is separate fr
 - Dashboard and API with local JSON queue/audit log
 - Scheduled worker and modular skills
 - Direct Instagram Graph API adapter (optional)
-- Zapier webhook publishing adapter for Creator and Business professional accounts
+- Direct Instagram publishing through the official Meta Graph API
 - Authenticated asynchronous delivery callback; webhook acceptance is never treated as proof of publication
 - Emergency kill switch, cancellation, daily cap and minimum spacing
 
@@ -21,32 +21,12 @@ npm start
 
 Open http://localhost:3000.
 
-## Zapier publishing route (Instagram Creator)
-
-Zapier's official Instagram for Business integration supports Creator and Business professional accounts linked to a Facebook Page. The Facebook profile used to connect must have permission to create content on that Page. The integration provides **Publish Photo(s)** and **Publish Video** (Reels) actions.
-
-1. In Zapier, create a Zap with **Webhooks by Zapier → Catch Hook** as its trigger.
-2. Copy the Catch Hook URL into `ZAPIER_PUBLISH_WEBHOOK_URL`.
-3. Add **Instagram for Business → Publish Photo(s)** for image posts and **Publish Video** for Reels. Use Paths/Filter so each post type reaches the matching action. Map `mediaUrl` to the media/video field and `caption` to Caption.
-4. Add a final **Webhooks by Zapier → POST** action. Set its URL to `https://YOUR-CREATOR-OS-HOST/api/publishing/callback`, payload type JSON, and map:
-   - `postId` = Catch Hook `postId`
-   - `status` = literal `published`
-   - `externalPostId` = the Instagram action's returned media/post ID (if the action exposes it)
-   Add header `X-Creator-OS-Callback-Secret` with the exact value of `ZAPIER_CALLBACK_SECRET`.
-5. For the Instagram action's error path, add a separate callback with `postId`, `status=failed`, and an error message. Do not send a success callback unless the Instagram action succeeded and returned an external ID.
-6. Deploy Creator OS to a public HTTPS host before enabling callbacks. Set `CREATOR_OS_PUBLIC_URL` to that origin. Set the Catch Hook URL, a long random `ZAPIER_CALLBACK_SECRET`, and keep `ENABLE_AUTOPUBLISH=false` while testing.
-7. Test an image and a Reel manually. Verify each appears on Instagram and Creator OS changes from `awaiting_confirmation` to `published`. Only then consider enabling automatic publishing.
-
-Creator OS sends this JSON event to Zapier: `event`, `postId`, `type`, `caption`, `mediaUrl`, `scheduledAt`, and `callbackUrl`. Zapier's initial Catch Hook response only confirms receipt. Creator OS waits for the authenticated callback before recording success. Ambiguous network delivery is marked `delivery_unknown` and is not automatically retried, to avoid accidental duplicate posts.
-
-**Plan note:** Zapier's current documentation lists Catch Hook as unavailable on its Free plan; Professional or higher is required for that trigger. Check your Zapier plan before building the workflow.
-
 ## Security and deployment status
 
 Creator OS uses owner-only dashboard/API authentication and Neon Postgres in the deployed app. Keep unattended publishing disabled until delivery reconciliation and operational safeguards are complete. Never commit `.env`, expose tokens in browser code, or share the private webhook URL / callback secret.
 
 ## Media requirements
-The Instagram action requires media that Zapier/Meta can fetch. Use publicly accessible HTTPS URLs; do not use local file paths or private Dropbox links.
+Instagram must be able to fetch your media, so use publicly accessible HTTPS URLs; do not use local file paths or private Dropbox links.
 
 ## Existing media pipeline
 The existing Hugging Face vertical-video pipeline is not modified. A future adapter can pass its finished public media URLs into Creator OS.
@@ -109,3 +89,25 @@ The owner-only dashboard includes an approval-first weekly content board. It cre
 
 ## Gemini image generation
 Optional original-image generation is disabled by default. It requires a server-side GEMINI_API_KEY and explicit GEMINI_IMAGE_GENERATION_ENABLED=true. API billing is separate from a consumer Gemini subscription. Attempts are capped (default 2/day, maximum 5); failed attempts count. Previews are temporary and are not persisted, scheduled or published. No new storage service or credentials are configured.
+
+## Providers, usage and costs
+
+The **Providers & usage** panel shows each provider, its model, today's usage against your daily limit, and whether it is free or paid.
+
+- **Gemini text** is opt-in (`GEMINI_TEXT_ENABLED=true` plus `GEMINI_API_KEY`). It is free only while the key belongs to a Google project **without billing**. In that setup, hitting the free limit returns an error (Creator OS then pauses calls for the `Retry-After` time, or 15 minutes) instead of charging you. Free-tier prompts may be used by Google to improve its products.
+- Pick the model in the dashboard (it lists the models your key can use) or set `GEMINI_TEXT_MODEL`. Only some models have a free tier; check Google's pricing page.
+- **Gemini image** generation is treated as **paid** and stays off by default. Each generation needs an explicit confirmation, shows your configured estimate (`GEMINI_IMAGE_COST_USD_PER_IMAGE`), and counts against a daily cap. A free text model cannot generate images.
+- Creator OS never switches providers automatically. The API key is only used on the server and never appears in responses.
+
+## Media storage (Cloudinary, free plan)
+
+Instagram downloads your media from a public HTTPS URL, and Reels are too large to send through a serverless function. So the browser uploads straight to **your own Cloudinary account** using a short-lived request signed by the server. You can still paste a public URL instead.
+
+**What it costs.** The Cloudinary Free plan needs **no credit card or other payment details**, so it cannot charge you. It includes 25 monthly credits shared by storage, bandwidth and transformations (1 credit is 1 GB of storage, 1 GB of bandwidth or 1,000 transformations), with a 10 MB limit per image and 100 MB per video. If you ever exceed the allowance, Cloudinary may restrict your account instead of billing you. Creator OS stays well inside it with its own limits (defaults: 3 GB stored, 20 uploads per day, 8 MB per image, 100 MB per video; see `.env.example`) and deletes a file from Cloudinary when you replace or discard it. Check Cloudinary's pricing page for current terms.
+
+**Setup (about five minutes)**
+1. Sign up for the free plan at cloudinary.com (email, Google or GitHub; no card).
+2. In the dashboard open *Settings > API Keys* and copy your **cloud name**, **API key** and **API secret**.
+3. In Vercel add `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` as server-side environment variables and redeploy. No bucket, public-access or CORS settings are needed.
+
+**How uploads are protected.** The server signs each upload for one card, one random file name and one file type (JPEG for images, MP4 or MOV for Reels), so Cloudinary itself rejects anything else. The API secret never reaches the browser. Before a card becomes *Ready* the server checks that the file is publicly reachable with the expected type and size. Uploaded files are publicly fetchable by anyone who knows their (unguessable) URL, so do not upload anything private. PNG and WebP images are converted to JPEG in your browser, and images outside Instagram's 4:5 to 1.91:1 range are rejected with a clear message.

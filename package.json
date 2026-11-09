@@ -1,13 +1,15 @@
 {
   "name": "creator-os",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
     "dev": "node --env-file-if-exists=.env --watch server.mjs",
-    "check": "node --check server.mjs && node --check lib/db.mjs && node --check lib/agent-planner.mjs && node --check lib/content-board.mjs && node --check lib/api-handler.mjs && node --check 'api/[...path].mjs' && node --check lib/media-providers/gemini-image.mjs",
-    "test": "node --test"
+    "check": "node scripts/check.mjs",
+    "test": "node scripts/run-tests.mjs all",
+    "test:unit": "node scripts/run-tests.mjs unit",
+    "test:integration": "node scripts/run-tests.mjs integration"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2"

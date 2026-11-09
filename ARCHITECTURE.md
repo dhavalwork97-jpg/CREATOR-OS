@@ -6,9 +6,8 @@ Dashboard
   -> Content planning and generation
   -> Safety and publishing policy
   -> Scheduler / worker
-  -> Publishing adapter (Zapier webhook OR direct Meta API)
+  -> Publishing adapter (direct Meta Graph API)
   -> Instagram
-  -> Authenticated delivery callback
   -> Audit log and analytics
 
 ## Boundaries
@@ -19,13 +18,11 @@ Dashboard
 - Publisher adapters isolate platform details from orchestration.
 - Every state transition and external publishing result is audited.
 
-## Zapier asynchronous delivery
-1. Creator OS POSTs a scheduled item to the Zapier Catch Hook.
-2. A successful webhook HTTP response means only that Zapier accepted the trigger.
-3. Zapier runs the matching Instagram photo/carousel or Reel action.
-4. A final Zapier Webhooks POST calls `/api/publishing/callback` with the post ID, outcome and Instagram media ID.
-5. The callback must include the shared `X-Creator-OS-Callback-Secret` header. Only a valid callback can move an item to published/failed.
-6. Uncertain delivery is not blindly retried; this avoids duplicate content.
+## Publishing delivery
+1. The worker claims one due, scheduled post with a version-checked database update, so two runs cannot publish the same item.
+2. It creates an Instagram media container, waits for processing, then publishes it.
+3. Uncertain outcomes become `delivery_unknown` and are never retried automatically; this avoids duplicate content.
+4. Legacy `awaiting_confirmation` items from the removed Zapier bridge can be cancelled from the dashboard.
 
 ## Full autonomy
 Full autonomy is bounded autonomy. It remains disabled until authentication, permissions, idempotency, durable storage, quotas, monitoring and kill-switch controls are verified. Failures or uncertain outcomes pause for review.
