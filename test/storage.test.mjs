@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { signParams, storageConfig, storageLimits, presignUpload, destroyRequest, normalizeFormat, publicUrlFor, resourceFor } from "../lib/storage/cloudinary.mjs";
-import { validateUpload, mediaKeyFor, keyBelongsToCard, reserveUpload, recordStored, recordRemoved, verifyPublicMedia, deleteStoredObject, storageSummary } from "../lib/storage/media.mjs";
+import { validateUpload, mediaKeyFor, keyBelongsToCard, reserveUpload, expirePendingUploads, consumeUploadReservation, recordStored, recordRemoved, verifyPublicMedia, deleteStoredObject, storageSummary } from "../lib/storage/media.mjs";
 
 const config = { configured: true, cloudName: "democloud", apiKey: "123456789012345", apiSecret: "SECRET-VALUE-XYZ" };
 const card = { id: "11111111-1111-1111-1111-111111111111", format: "image" };
@@ -98,6 +98,21 @@ test("spend protection: daily upload cap and total storage cap, with space freed
   assert.equal(reserveUpload(state, 20 * 1048576, limits, now).ok, true);
   assert.equal(reserveUpload(state, 1, limits, now).status, 429);
   assert.equal(reserveUpload(state, 1, limits, new Date("2026-11-09T10:00:00Z")).ok, true, "a new day resets the upload count");
+});
+
+test("pending uploads reserve storage, are card-bound, and expire after one hour", () => {
+  const state = {};
+  const now = new Date("2026-11-09T10:00:00Z");
+  const key = "board/" + card.id + "/33333333-3333-3333-3333-333333333333";
+  assert.equal(reserveUpload(state, 40 * 1048576, limits, now, key, card.id, "image").ok, true);
+  assert.equal(reserveUpload(state, 20 * 1048576, limits, now, "board/" + card.id + "/44444444-4444-4444-4444-444444444444", card.id, "image").status, 409);
+  assert.equal(consumeUploadReservation(state, key, reel.id), false, "a reservation cannot be used by another card");
+  assert.equal(consumeUploadReservation(state, key, card.id), true);
+  assert.equal(consumeUploadReservation(state, key, card.id), false, "a reservation can only be consumed once");
+  const staleKey = "board/" + card.id + "/55555555-5555-5555-5555-555555555555";
+  reserveUpload(state, 1000, limits, now, staleKey, card.id, "image");
+  assert.deepEqual(expirePendingUploads(state, new Date(now.getTime() + 60 * 60 * 1000)), [{ key: staleKey, resource: "image" }]);
+  assert.equal(state.storageUsage.pending[staleKey], undefined);
 });
 
 test("verifies reachability, content type and size (header first, browser-reported size as fallback)", async () => {
