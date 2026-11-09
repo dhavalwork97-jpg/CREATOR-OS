@@ -157,6 +157,7 @@ test("presigned uploads reserve storage and an unreserved key cannot be attached
   const presigned = (await call("/api/board/" + image.id + "/presign", { contentType: "image/jpeg", size: 1000000 })).body;
   assert.equal((await call("/api/state")).body.storage.reservedBytes, before.reservedBytes + 1000000);
   const otherKey = "board/" + image.id + "/66666666-6666-6666-6666-666666666666";
+  uploaded.set("https://res.cloudinary.com/" + CLOUD + "/image/upload/" + otherKey + ".jpg", { type: "image/jpeg", bytes: 1000000 });
   const rejected = await call("/api/board/" + image.id + "/media", { key: otherKey, format: "jpg", bytes: 1000000 });
   assert.equal(rejected.status, 409);
   assert.equal((await call("/api/state")).body.storage.reservedBytes, before.reservedBytes + 1000000);
