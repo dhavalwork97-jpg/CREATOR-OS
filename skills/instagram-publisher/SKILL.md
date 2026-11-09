@@ -1,9 +1,9 @@
 ---
 name: instagram-publisher
-description: Publish queued media through Meta Graph API or an authorized Make.com scenario.
+description: Publish queued media through the official Meta Graph API.
 ---
 # Instagram publisher
-- Use official Meta publishing endpoints or a Make.com connection authorized by the account owner.
+- Use only official Meta publishing endpoints with credentials authorized by the account owner.
 - Never request or store an Instagram password.
 - Require a professional account and the permissions required by the selected connector.
 - Require publicly accessible HTTPS media URLs.
