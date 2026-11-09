@@ -161,8 +161,8 @@ test("presigned uploads reserve storage and an unreserved key cannot be attached
   const rejected = await call("/api/board/" + image.id + "/media", { key: otherKey, format: "jpg", bytes: 1000000 });
   assert.equal(rejected.status, 409);
   assert.equal((await call("/api/state")).body.storage.reservedBytes, before.reservedBytes + 1000000);
-  const uploaded = browserUpload(presigned, "image", "jpg", "image/jpeg", 1000000);
-  assert.equal((await call("/api/board/" + image.id + "/media", { key: presigned.key, ...uploaded })).status, 200);
+  const fileResult = browserUpload(presigned, "image", "jpg", "image/jpeg", 1000000);
+  assert.equal((await call("/api/board/" + image.id + "/media", { key: presigned.key, ...fileResult })).status, 200);
   const state = (await call("/api/state")).body.storage;
   assert.equal(state.reservedBytes, before.reservedBytes);
   assert.equal(state.usedBytes, before.usedBytes + 1000000);
