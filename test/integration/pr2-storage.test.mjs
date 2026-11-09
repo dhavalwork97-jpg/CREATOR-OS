@@ -168,6 +168,21 @@ test("presigned uploads reserve storage and an unreserved key cannot be attached
   assert.equal(state.usedBytes, before.usedBytes + 1000000);
 });
 
+test("an uploaded file cannot exceed its reserved byte count", async () => {
+  const generated = await call("/api/board/generate", brief);
+  const image = generated.body.cards.find(c => c.format === "image");
+  const before = (await call("/api/state")).body.storage;
+  const pre = (await call("/api/board/" + image.id + "/presign", { contentType: "image/jpeg", size: 1000 })).body;
+  const fileResult = browserUpload(pre, "image", "jpg", "image/jpeg", 2000);
+  const attached = await call("/api/board/" + image.id + "/media", { key: pre.key, ...fileResult });
+  assert.equal(attached.status, 409);
+  assert.match(attached.body.error, /larger than the size reserved/);
+  const after = (await call("/api/state")).body.storage;
+  assert.equal(after.reservedBytes, before.reservedBytes);
+  assert.equal(after.usedBytes, before.usedBytes);
+  assert.ok(deleted.some(item => item.publicId === pre.key), "oversized Cloudinary object is removed");
+});
+
 test("daily upload cap blocks further presigns", async () => {
   const reel = cards.find(c => c.format === "reel");
   const results = [];

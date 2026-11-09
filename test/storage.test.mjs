@@ -107,7 +107,7 @@ test("pending uploads reserve storage, are card-bound, and expire after one hour
   assert.equal(reserveUpload(state, 40 * 1048576, limits, now, key, card.id, "image").ok, true);
   assert.equal(reserveUpload(state, 20 * 1048576, limits, now, "board/" + card.id + "/44444444-4444-4444-4444-444444444444", card.id, "image").status, 409);
   assert.equal(consumeUploadReservation(state, key, reel.id), false, "a reservation cannot be used by another card");
-  assert.equal(consumeUploadReservation(state, key, card.id), true);
+  assert.deepEqual(consumeUploadReservation(state, key, card.id), { bytes: 40 * 1048576, cardId: card.id, resource: "image", createdAt: now.toISOString() });
   assert.equal(consumeUploadReservation(state, key, card.id), false, "a reservation can only be consumed once");
   const staleKey = "board/" + card.id + "/55555555-5555-5555-5555-555555555555";
   reserveUpload(state, 1000, limits, now, staleKey, card.id, "image");
