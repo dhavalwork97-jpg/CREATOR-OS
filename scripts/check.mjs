@@ -16,7 +16,18 @@ const files = [
   "public/providers.js",
   "lib/storage/cloudinary.mjs",
   "lib/storage/media.mjs",
-  "public/content-board.js"
+  "public/content-board.js",
+  "lib/sql.mjs",
+  "lib/migrate.mjs",
+  "lib/accounts.mjs",
+  "lib/audit-log.mjs",
+  "lib/supervisor.mjs",
+  "lib/worker-tick.mjs",
+  "lib/tasks/queue.mjs",
+  "lib/agents/index.mjs",
+  "migrations/0001_foundation.mjs",
+  "scripts/migrate.mjs",
+  "api/worker/tick.mjs"
 ];
 
 for (const file of files) {
