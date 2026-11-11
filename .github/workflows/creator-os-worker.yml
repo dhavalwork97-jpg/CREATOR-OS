@@ -15,7 +15,7 @@ concurrency:
 jobs:
   process-due-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
       - name: Trigger protected Creator OS worker
         env:
@@ -35,3 +35,22 @@ jobs:
           curl "${args[@]}" \
             -H "Authorization: Bearer $CREATOR_OS_CRON_SECRET" \
             "$CREATOR_OS_URL/api/worker/run"
+
+      # Creator OS 2.0 supervisor tick. Runs even if the publishing step above fails, and its own failure
+      # (for example before migrations are applied) never fails the publishing worker.
+      - name: Trigger Creator OS supervisor tick
+        if: always()
+        continue-on-error: true
+        env:
+          CREATOR_OS_URL: ${{ secrets.CREATOR_OS_URL }}
+          CREATOR_OS_CRON_SECRET: ${{ secrets.CREATOR_OS_CRON_SECRET }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+          args=(--fail-with-body --silent --show-error --max-time 60)
+          if [ -n "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            args+=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+          fi
+          curl "${args[@]}" \
+            -H "Authorization: Bearer $CREATOR_OS_CRON_SECRET" \
+            "$CREATOR_OS_URL/api/worker/tick"
