@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { freshDatabase, seedAccount } from "./helpers/pg.mjs";
 import { query } from "../lib/sql.mjs";
-import { migrateUp, migrateDown, appliedMigrations, schemaIsCurrent } from "../lib/migrate.mjs";
+import { migrateUp, migrateDown, appliedMigrations, schemaIsCurrent, MIGRATIONS } from "../lib/migrate.mjs";
 import * as q from "../lib/tasks/queue.mjs";
 import { recordAudit, recentAudit } from "../lib/audit-log.mjs";
 
@@ -25,19 +25,24 @@ test("backoff is exponential and capped at one hour", () => {
   assert.equal(q.backoffSeconds(20), 3600);
 });
 
-test("migrations apply once, report status, and roll back one step without touching legacy state", async () => {
+test("migrations apply once, report status, and roll back one step at a time without touching legacy state", async () => {
   const { close } = await freshDatabase({ migrate: false });
   try {
+    const ids = MIGRATIONS.map(m => m.id);
     assert.equal(await schemaIsCurrent(), false);
-    assert.deepEqual(await migrateUp(), ["0001_foundation"]);
+    assert.deepEqual(await migrateUp(), ids);
     assert.deepEqual(await migrateUp(), []);
     assert.equal(await schemaIsCurrent(), true);
     await query(`CREATE TABLE creator_os_state (id text PRIMARY KEY, version bigint, data jsonb)`);
-    assert.equal(await migrateDown(), "0001_foundation");
+    assert.equal(await migrateDown(), ids[ids.length - 1], "only the latest migration is rolled back");
+    assert.equal(await schemaIsCurrent(), false);
+    assert.ok((await query(`SELECT 1 FROM information_schema.tables WHERE table_name = 'agent_tasks'`)).length === 1, "earlier migrations stay applied");
+    while (await migrateDown()) { /* roll everything back */ }
     assert.deepEqual(await appliedMigrations(), []);
     const left = (await query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`)).map(r => r.table_name);
-    assert.ok(left.includes("creator_os_state"), "legacy table survives rollback");
-    assert.ok(!left.includes("agent_tasks"));
+    assert.ok(left.includes("creator_os_state"), "legacy table survives a full rollback");
+    assert.ok(!left.includes("agent_tasks") && !left.includes("media_items"));
+    assert.deepEqual(await migrateUp(), ids, "rollback is repeatable");
   } finally { await close(); }
 });
 
