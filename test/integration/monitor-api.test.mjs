@@ -43,7 +43,7 @@ test("the worker tick registers the monitor schedule and a restart does not dupl
   const { close } = await freshDatabase();
   try {
     const one = await app.call("/api/worker/tick", undefined, { auth: false, headers: bearer });
-    assert.equal(one.body.scheduled, 5, "four monitor tasks plus the daily analytics computation");
+    assert.equal(one.body.scheduled, 6, "four monitor tasks, daily analytics and weekly research");
     const two = await app.call("/api/worker/tick", undefined, { auth: false, headers: bearer });
     assert.equal(two.body.scheduled, 0);
     const types = (await query(`SELECT DISTINCT task_type FROM agent_tasks WHERE agent = 'monitor' ORDER BY 1`)).map(r => r.task_type);
