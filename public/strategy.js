@@ -19,14 +19,19 @@
     '<input data-topic="' + esc(p.item_id) + '" maxlength="300" value="' + esc(p.topic) + '"' + (p.status === "converted" || p.status === "rejected" ? " disabled" : "") + "><br>" + esc(p.rationale) +
     '<br><span class="meta">basis: ' + esc(CLASS[p.evidence_class] || p.evidence_class) + " · confidence: " + esc(p.confidence) + "</span>" +
     (p.status === "converted" ? '<br><span class="agent-note">On the Content Board. Needs media and your approval.</span>' : p.status === "rejected" ? "" :
-      '<div class="agent-actions"><button class="secondary" data-save="' + esc(p.item_id) + '" type="button">Save edit</button><button class="secondary" data-board="' + esc(p.item_id) + '" type="button">Send to Content Board</button><button class="secondary" data-rej="' + esc(p.item_id) + '" type="button">Reject</button></div>') + "</div>";
+      '<div class="agent-actions"><button class="secondary" data-save="' + esc(p.item_id) + '" type="button">Save edit</button><button class="secondary" data-board="' + esc(p.item_id) + '" type="button">Send to Content Board</button><button class="secondary" data-draft="' + esc(p.item_id) + '" type="button">Draft caption &amp; prompt</button><button class="secondary" data-rej="' + esc(p.item_id) + '" type="button">Reject</button></div>') + "</div>";
+  const pkgCard = k => '<div class="post"><span class="board-status">' + esc(k.status.toUpperCase()) + "</span> <strong>Draft v" + esc(k.version) + "</strong> <span class=\"meta\">" + (k.source === "gemini" ? "written by Gemini (" + esc(k.model) + ")" : "plain template, no AI") + "</span><br>" + esc(k.caption) + "<br>" + esc(k.hashtags.join(" ")) +
+    '<br><span class="meta">Media prompt: ' + esc(k.media_prompt) + "</span>" + (k.validation.problems?.length ? '<br><span class="connection-error">' + k.validation.problems.map(esc).join(" ") + "</span>" : "") + (k.validation.warnings?.length ? '<br><span class="agent-note">' + k.validation.warnings.map(esc).join(" ") + "</span>" : "") +
+    (["draft", "needs_fixes"].includes(k.status) ? '<div class="agent-actions"><button class="secondary" data-apply="' + esc(k.package_id) + '" type="button">Apply to Content Board card</button><button class="secondary" data-pkgrej="' + esc(k.package_id) + '" type="button">Reject</button></div>' : "") + "</div>";
   async function load() {
     try {
       const d = await request("/api/strategy/overview");
+      const pk = await request("/api/creative/packages");
       const s = d.settings;
       if (!$("strategy-niche").value) { $("strategy-niche").value = s.niche; $("strategy-audience").value = s.audience; $("strategy-objective").value = s.objective; $("strategy-pillars").value = s.pillars.join(", "); $("strategy-posts").value = s.postsPerWeek; }
       $("strategy-body").innerHTML = "<h3>Opportunities</h3>" + (d.opportunities.length ? d.opportunities.map(opportunity).join("") : '<p class="status">None yet. Research runs weekly or on request. External web research is not configured, so only your analytics and labelled AI ideas appear.</p>') +
-        "<h3>Proposed 7-day plan</h3>" + (d.plan.length ? d.plan.map(planItem).join("") : '<p class="status">No plan yet. Fewer items are proposed when evidence is thin.</p>');
+        "<h3>Proposed 7-day plan</h3>" + (d.plan.length ? d.plan.map(planItem).join("") : '<p class="status">No plan yet. Fewer items are proposed when evidence is thin.</p>') +
+        (pk.packages.length ? "<h3>Creative drafts (text only, no image is generated automatically)</h3>" + pk.packages.map(pkgCard).join("") : "");
     } catch (error) { $("strategy-body").innerHTML = '<span class="connection-error">' + esc(error.message) + "</span>"; }
   }
   const say = text => { $("strategy-message").textContent = text; };
@@ -43,6 +48,9 @@
     if (b.dataset.opp) act(() => request("/api/strategy/opportunities/" + b.dataset.opp + "/" + b.dataset.act, {}));
     if (b.dataset.save) act(async () => { await request("/api/strategy/plan/" + b.dataset.save, { topic: root.querySelector('[data-topic="' + b.dataset.save + '"]').value }); say("Edit saved."); });
     if (b.dataset.rej) act(() => request("/api/strategy/plan/" + b.dataset.rej, { reject: true }));
+    if (b.dataset.draft) act(async () => say((await request("/api/creative/plan/" + b.dataset.draft + "/draft", {})).note));
+    if (b.dataset.apply) act(async () => say((await request("/api/creative/packages/" + b.dataset.apply + "/apply", {})).note));
+    if (b.dataset.pkgrej) act(() => request("/api/creative/packages/" + b.dataset.pkgrej + "/reject", {}));
     if (b.dataset.board) act(async () => say((await request("/api/strategy/plan/" + b.dataset.board + "/to-board", {})).note + " Reload the Content Board to see it."));
   });
   load();
