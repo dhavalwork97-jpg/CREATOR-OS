@@ -47,3 +47,16 @@ test("after migrations: tick registers the account, lists tasks, cancels with ow
     assert.equal(JSON.stringify([list.body, events.body, tick.body]).includes("tok-should-never-leak"), false);
   } finally { await close(); }
 });
+
+test("owner routes register the configured account on first use, without waiting for the worker", async () => {
+  const { close } = await freshDatabase();
+  try {
+    const { migrateUp } = await import("../../lib/migrate.mjs");
+    await migrateUp();
+    const res = await app.call("/api/monitor/overview");
+    assert.equal(res.status, 200);
+    assert.equal((await query(`SELECT 1 FROM ig_accounts`)).length, 1);
+    assert.equal((await app.call("/api/strategy/overview")).status, 200);
+    assert.equal((await query(`SELECT 1 FROM ig_accounts`)).length, 1, "registered once");
+  } finally { await close(); }
+});
