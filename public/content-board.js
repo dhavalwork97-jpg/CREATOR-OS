@@ -49,7 +49,7 @@
         : '<p class="agent-note">' + (storage && storage.configured ? "" : "Uploads are disabled until media storage is configured (see the README). You can still paste a public HTTPS URL.") + '</p>') +
       '<div class="agent-actions">' +
       (card.status === "scheduled" ? '<span class="agent-note">Scheduled for ' + esc(new Date(card.scheduledAt).toLocaleString()) + '</span>' :
-      '<button type="button" class="secondary board-save">Save card</button><button type="button" class="board-approve">Approve & schedule</button><button type="button" class="danger board-discard">Discard</button>') +
+      '<button type="button" class="secondary board-save">Save card</button><button type="button" class="secondary board-safety">Safety review</button><button type="button" class="board-approve">Approve & schedule</button><button type="button" class="danger board-discard">Discard</button>') +
       '</div></article>').join("");
     list.querySelectorAll(".board-card").forEach(cardEl => {
       const id = cardEl.dataset.id;
@@ -59,6 +59,13 @@
         catch (error) { $("board-message").textContent = error.message; buttons.forEach(b => b.disabled = false); }
       };
       cardEl.querySelector(".board-save")?.addEventListener("click", () => run("update", { prompt: cardEl.querySelector(".board-prompt").value, caption: cardEl.querySelector(".board-caption").value, mediaUrl: cardEl.querySelector(".board-media").value }));
+      cardEl.querySelector(".board-safety")?.addEventListener("click", async () => {
+        try {
+          const r = await request("/api/safety/cards/" + id + "/review", {});
+          const label = { approved: "APPROVED", needs_revision: "NEEDS REVISION", human_review: "NEEDS YOUR REVIEW", blocked: "BLOCKED" }[r.review.status];
+          $("board-message").textContent = "Safety review: " + label + (r.review.findings.length ? " – " + r.review.findings.map(x => x.message).join(" ") : ". No findings.") + " Save the card again after edits, then re-run the review.";
+        } catch (error) { $("board-message").textContent = error.message; }
+      });
       cardEl.querySelector(".board-approve")?.addEventListener("click", () => run("approve"));
       cardEl.querySelector(".board-discard")?.addEventListener("click", () => run("discard"));
       const fileInput = cardEl.querySelector(".board-upload");
